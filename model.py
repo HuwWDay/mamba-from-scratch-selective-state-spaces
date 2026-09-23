@@ -12,8 +12,11 @@ def rms_norm(x, weight, eps=1e-5):
     # TODO: Normalize a hidden sequence with RMSNorm using a learned per-channel scale...
     return x * weight / torch.sqrt((x**2).mean(dim=-1, keepdim=True)+eps)
 
-# Step 2 - silu (not yet solved)
-# TODO: implement
+# Step 2 - silu
+def silu(x):
+    """Apply the SiLU activation elementwise."""
+    # TODO: Implement `silu` so that it applies the SiLU activation to a float tensor of any shape.
+    return torch.nn.functional.silu(x)
 
 # Step 3 - causal_depthwise_conv1d (not yet solved)
 # TODO: implement

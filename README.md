@@ -11,7 +11,7 @@ python scaffold.py
 ## Steps
 
 - [x] **1.** rms_norm
-- [ ] **2.** silu
+- [x] **2.** silu
 - [ ] **3.** causal_depthwise_conv1d
 - [ ] **4.** in_proj_split
 - [ ] **5.** compute_delta
