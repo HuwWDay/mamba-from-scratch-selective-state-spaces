@@ -1,0 +1,86 @@
+"""
+Mamba from Scratch: Selective State Spaces
+
+Assembled from your step-by-step solutions.
+"""
+
+import numpy as np
+
+# Step 1 - rms_norm
+def rms_norm(x, weight, eps=1e-5):
+    """Normalize a hidden sequence with RMSNorm using a learned per-channel scale."""
+    # TODO: Normalize a hidden sequence with RMSNorm using a learned per-channel scale...
+    return x * weight / torch.sqrt((x**2).mean(dim=-1, keepdim=True)+eps)
+
+# Step 2 - silu (not yet solved)
+# TODO: implement
+
+# Step 3 - causal_depthwise_conv1d (not yet solved)
+# TODO: implement
+
+# Step 4 - in_proj_split (not yet solved)
+# TODO: implement
+
+# Step 5 - compute_delta (not yet solved)
+# TODO: implement
+
+# Step 6 - project_bc (not yet solved)
+# TODO: implement
+
+# Step 7 - make_diagonal_a (not yet solved)
+# TODO: implement
+
+# Step 8 - discretize_a_zoh (not yet solved)
+# TODO: implement
+
+# Step 9 - discretize_b_zoh (not yet solved)
+# TODO: implement
+
+# Step 10 - compare_euler_zoh_b (not yet solved)
+# TODO: implement
+
+# Step 11 - siso_state_update (not yet solved)
+# TODO: implement
+
+# Step 12 - scan_single_channel (not yet solved)
+# TODO: implement
+
+# Step 13 - selective_scan (not yet solved)
+# TODO: implement
+
+# Step 14 - compare_constant_vs_selective_delta (not yet solved)
+# TODO: implement
+
+# Step 15 - gate_scan_output (not yet solved)
+# TODO: implement
+
+# Step 16 - out_proj (not yet solved)
+# TODO: implement
+
+# Step 17 - mamba_mixer (not yet solved)
+# TODO: implement
+
+# Step 18 - mamba_block (not yet solved)
+# TODO: implement
+
+# Step 19 - run_mamba_lm_stack (not yet solved)
+# TODO: implement
+
+# Step 20 - mamba_lm_forward (not yet solved)
+# TODO: implement
+
+# Step 21 - next_token_cross_entropy (not yet solved)
+# TODO: implement
+
+# Step 22 - sgd_training_step (not yet solved)
+# TODO: implement
+
+# Step 23 - mamba_recurrent_step (not yet solved)
+# TODO: implement
+
+# Step 24 - greedy_generate (not yet solved)
+# TODO: implement
+
+# Step 25 - train_tiny_mamba_and_generate (not yet solved)
+# TODO: implement
+
