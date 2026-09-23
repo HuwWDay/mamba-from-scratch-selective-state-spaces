@@ -18,8 +18,26 @@ def silu(x):
     # TODO: Implement `silu` so that it applies the SiLU activation to a float tensor of any shape.
     return torch.nn.functional.silu(x)
 
-# Step 3 - causal_depthwise_conv1d (not yet solved)
-# TODO: implement
+# Step 3 - causal_depthwise_conv1d
+def causal_depthwise_conv1d(x, weight, bias=None):
+    """Run a causal depthwise 1-D convolution over a (B, L, E) sequence.
+
+    Args:
+        x: (B, L, E) input sequence.
+        weight: (E, K) per-channel kernel.
+        bias: optional (E,) added after the convolution.
+
+    Returns:
+        (B, L, E) output sequence.
+    """
+
+    # TODO: Implement causal_depthwise_conv1d to produce a causally convolved sequence of the same length.
+    E, K = weight.shape
+    xnew = x.transpose(1, 2)
+    wnew = weight.unsqueeze(1)
+    pad = torch.nn.functional.pad(xnew, (K-1, 0))
+    trans = torch.nn.functional.conv1d(pad, wnew, bias=bias, groups=E)
+    return trans.transpose(1, 2)
 
 # Step 4 - in_proj_split (not yet solved)
 # TODO: implement
