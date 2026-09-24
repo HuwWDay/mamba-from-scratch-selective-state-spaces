@@ -251,8 +251,56 @@ def out_proj(y, weight, bias=None):
     # TODO: Implement out_proj, the linear map that sends the gated SSM scan back to model width.
     return torch.nn.functional.linear(y, weight, bias)
 
-# Step 17 - mamba_mixer (not yet solved)
-# TODO: implement
+# Step 17 - mamba_mixer
+def mamba_mixer(u, params):
+    """Run one full Mamba selective-SSM mixer on a token sequence.
+
+    Args:
+        u: (B, L, D) input sequence.
+        params: dict of mixer weights.
+
+    Returns:
+        (B, L, D) mixer output.
+    """
+    # 1. Unpack required weights
+    in_proj_weight = params["in_proj_weight"]
+    conv_weight = params["conv_weight"]
+    dt_weight = params["dt_weight"]
+    weight_b = params["weight_b"]
+    weight_c = params["weight_c"]
+    log_a = params["log_a"]
+    out_proj_weight = params["out_proj_weight"]
+
+    # Optional biases
+    in_proj_bias = params.get("in_proj_bias")
+    conv_bias = params.get("conv_bias")
+    dt_bias = params.get("dt_bias")
+    out_proj_bias = params.get("out_proj_bias")
+
+    # 2. Input projection: split u into SSM input branch (x) and gating branch (z)
+    x, z = in_proj_split(u, in_proj_weight, bias=in_proj_bias)
+
+    # 3. Causal depthwise 1D conv + SiLU activation on x
+    x = causal_depthwise_conv1d(x, conv_weight, bias=conv_bias)
+    x = silu(x)
+
+    # 4. Compute input-dependent SSM parameters (Delta, B, C)
+    delta = compute_delta(x, dt_weight, bias=dt_bias)
+    b, c = project_bc(x, weight_b, weight_c)
+
+    # 5. Build continuous A and discretize (Delta, A, B) via ZOH
+    a = make_diagonal_a(log_a)
+    a_bar = discretize_a_zoh(delta, a)
+    b_bar = discretize_b_zoh(delta, a, b)
+
+    # 6. Run selective scan (discard the final SSM state)
+    y, _ = selective_scan(x, a_bar, b_bar, c, h0=None)
+
+    # 7. Gate with the z branch and project back to dimension D
+    y = gate_scan_output(y, z)
+    out = out_proj(y, out_proj_weight, bias=out_proj_bias)
+
+    return out
 
 # Step 18 - mamba_block (not yet solved)
 # TODO: implement
