@@ -160,8 +160,53 @@ def scan_single_channel(x, a_bar, b_bar, c, h0=None):
 
     return y, h_prev
 
-# Step 13 - selective_scan (not yet solved)
-# TODO: implement
+# Step 13 - selective_scan
+import torch
+
+
+def selective_scan(x, a_bar, b_bar, c, h0=None):
+    """Run a selective scan over a batched multi-channel sequence."""
+    B, L, E = x.shape
+    N = a_bar.shape[-1]
+
+    # Preallocate output sequence and final hidden state
+    y = torch.zeros((B, L, E), dtype=x.dtype, device=x.device)
+    h_final = torch.zeros((B, E, N), dtype=x.dtype, device=x.device)
+
+    # Handle sequence length 0 edge-case
+    if L == 0:
+        if h0 is not None:
+            h_final.copy_(h0)
+        return y, h_final
+
+    # Iterate over batch elements and channels
+    for b in range(B):
+        # In standard Mamba/selective SSMs, c is often shared across channels: (B, L, N)
+        # If c is per-channel: (B, L, E, N), adjust slicing accordingly: c[b, :, e, :]
+        c_b = c[b] if c.ndim == 3 else None
+
+        for e in range(E):
+            # Extract 1D sequence for current batch and channel: (L,)
+            x_be = x[b, :, e]
+
+            # Extract parameter slices: (L, N)
+            a_bar_be = a_bar[b, :, e, :]
+            b_bar_be = b_bar[b, :, e, :]
+            c_be = c_b if c_b is not None else c[b, :, e, :]
+
+            # Extract initial hidden state for this channel if provided: (N,)
+            h0_be = h0[b, e, :] if h0 is not None else None
+
+            # Process single channel
+            y_be, h_be = scan_single_channel(
+                x_be, a_bar_be, b_bar_be, c_be, h0=h0_be
+            )
+
+            # Store results
+            y[b, :, e] = y_be
+            h_final[b, e] = h_be
+
+    return y, h_final
 
 # Step 14 - compare_constant_vs_selective_delta (not yet solved)
 # TODO: implement
