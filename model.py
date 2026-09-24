@@ -233,8 +233,11 @@ def compare_constant_vs_selective_delta(x, a, b, c, delta_const, delta_sel):
     y_s, _ = selective_scan(x, a_bar_s, b_bar_s, c, h0=None)
     return y_c, y_s
 
-# Step 15 - gate_scan_output (not yet solved)
-# TODO: implement
+# Step 15 - gate_scan_output
+def gate_scan_output(y, z):
+    """Modulate the selective-scan output y by the parallel gate branch z."""
+    # TODO: Modulate the selective-scan output y by the parallel gate branch z.
+    return silu(z)*y
 
 # Step 16 - out_proj (not yet solved)
 # TODO: implement
