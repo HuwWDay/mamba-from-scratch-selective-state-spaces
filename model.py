@@ -239,8 +239,17 @@ def gate_scan_output(y, z):
     # TODO: Modulate the selective-scan output y by the parallel gate branch z.
     return silu(z)*y
 
-# Step 16 - out_proj (not yet solved)
-# TODO: implement
+# Step 16 - out_proj
+def out_proj(y, weight, bias=None):
+    """Project gated scan output from d_inner back to d_model.
+
+    y: (..., d_inner)
+    weight: (d_model, d_inner)
+    bias: (d_model,) or None
+    Returns: (..., d_model)
+    """
+    # TODO: Implement out_proj, the linear map that sends the gated SSM scan back to model width.
+    return torch.nn.functional.linear(y, weight, bias)
 
 # Step 17 - mamba_mixer (not yet solved)
 # TODO: implement
