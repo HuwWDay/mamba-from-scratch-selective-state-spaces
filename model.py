@@ -302,8 +302,22 @@ def mamba_mixer(u, params):
 
     return out
 
-# Step 18 - mamba_block (not yet solved)
-# TODO: implement
+# Step 18 - mamba_block
+def mamba_block(x, params):
+    """Apply a pre-norm residual Mamba block to a token sequence.
+
+    Args:
+        x: (B, L, D) hidden sequence.
+        params: dict with norm_weight (D,) plus every mamba_mixer key.
+
+    Returns:
+        (B, L, D) block output.
+    """
+    # TODO: Wrap the selective mixer in a pre-norm residual block...
+    norm_weight = params["norm_weight"]
+    x_new = rms_norm(x, norm_weight)
+    out = mamba_mixer(x_new, params)
+    return x + out
 
 # Step 19 - run_mamba_lm_stack (not yet solved)
 # TODO: implement
