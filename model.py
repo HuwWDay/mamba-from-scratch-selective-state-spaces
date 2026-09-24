@@ -131,8 +131,34 @@ def siso_state_update(h_prev, a_bar, b_bar, c, x_t):
     y_t = (c * h_t).sum()
     return y_t, h_t
 
-# Step 12 - scan_single_channel (not yet solved)
-# TODO: implement
+# Step 12 - scan_single_channel
+import torch
+
+
+def scan_single_channel(x, a_bar, b_bar, c, h0=None):
+    """Scan a single channel sequentially over time and return both the outputs and the final hidden state."""
+    L = x.shape[0]
+    N = a_bar.shape[-1]
+
+    if h0 is None:
+        h0 = torch.zeros(N, dtype=x.dtype, device=x.device)
+
+    ys = []
+    h_prev = h0
+
+    if L == 0:
+        return torch.empty(0, dtype=x.dtype, device=x.device), h0
+
+    for t in range(L):
+        # Step through time sequentially using the single-step recurrence
+        y_t, h_t = siso_state_update(h_prev, a_bar[t], b_bar[t], c[t], x[t])
+        ys.append(y_t)
+        h_prev = h_t
+   
+    # Stack collected outputs across the time dimension: shape (L,)
+    y = torch.stack(ys, dim=0)
+
+    return y, h_prev
 
 # Step 13 - selective_scan (not yet solved)
 # TODO: implement
