@@ -574,6 +574,120 @@ def greedy_generate(prompt_ids, params, max_new_tokens):
     generated_ids = torch.cat(generated, dim=0).long()
     return torch.cat([prompt_ids, generated_ids], dim=0)
 
-# Step 25 - train_tiny_mamba_and_generate (not yet solved)
-# TODO: implement
+# Step 25 - train_tiny_mamba_and_generate
+import torch
+
+
+def train_tiny_mamba_and_generate(
+    corpus,
+    n_steps,
+    lr,
+    prompt,
+    max_new_tokens,
+    d_model=16,
+    n_layers=2,
+    d_state=4,
+    d_inner=32,
+    conv_kernel=3,
+    seed=0,
+):
+    """Train a tiny character-level Mamba LM on corpus and greedily generate from prompt.
+
+    Args:
+        corpus: string corpus to train on.
+        n_steps: number of SGD steps.
+        lr: learning rate.
+        prompt: string prompt to start generation.
+        max_new_tokens: number of new tokens to generate greedily.
+        d_model: model dimension.
+        n_layers: number of stacked Mamba layers.
+        d_state: SSM state dimension N.
+        d_inner: inner hidden dimension E.
+        conv_kernel: 1D convolution kernel size K.
+        seed: random seed for reproducibility.
+
+    Returns:
+        (text, losses): decoded string continuation and a list of float training losses.
+    """
+    # 1. Build vocabulary and character mappings
+    vocab = sorted(set(corpus))
+    stoi = {ch: i for i, ch in enumerate(vocab)}
+    itos = {i: ch for i, ch in enumerate(vocab)}
+    V = len(vocab)
+
+    # Encode corpus as (1, L) and prompt as 1-D (prompt_len,)
+    corpus_ids = torch.tensor([[stoi[ch] for ch in corpus]], dtype=torch.long)
+    prompt_ids = torch.tensor([stoi[ch] for ch in prompt], dtype=torch.long)
+
+    # 2. Seed RNG and initialize parameters as float32 leaf tensors with requires_grad=True
+    torch.manual_seed(seed)
+
+    def init_matrix(out_features, in_features):
+        return torch.randn(
+            out_features, in_features, dtype=torch.float32
+        ) * 0.02
+
+    def init_bias(dim):
+        return torch.zeros(dim, dtype=torch.float32)
+
+    # Top-level weights
+    params = {
+        "embed_weight": init_matrix(V, d_model).requires_grad_(True),
+        "lm_head_weight": init_matrix(V, d_model).requires_grad_(True),
+        "norm_weight": torch.ones(d_model, dtype=torch.float32).requires_grad_(
+            True
+        ),
+        "blocks": [],
+    }
+
+    # Per-layer block dictionaries
+    for _ in range(n_layers):
+        # log_a[i, n] = log(n + 1); expand and clone to ensure leaf tensor status
+        base_log_a = torch.log(
+            torch.arange(1, d_state + 1, dtype=torch.float32)
+        )
+        log_a = (
+            base_log_a.unsqueeze(0)
+            .repeat(d_inner, 1)
+            .clone()
+            .requires_grad_(True)
+        )
+
+        block = {
+            "norm_weight": torch.ones(
+                d_model, dtype=torch.float32
+            ).requires_grad_(True),
+            "in_proj_weight": init_matrix(
+                2 * d_inner, d_model
+            ).requires_grad_(True),
+            "in_proj_bias": init_bias(2 * d_inner).requires_grad_(True),
+            "conv_weight": init_matrix(d_inner, conv_kernel).requires_grad_(
+                True
+            ),
+            "conv_bias": init_bias(d_inner).requires_grad_(True),
+            "dt_weight": init_matrix(d_inner, d_inner).requires_grad_(True),
+            "dt_bias": init_bias(d_inner).requires_grad_(True),
+            "weight_b": init_matrix(d_state, d_inner).requires_grad_(True),
+            "weight_c": init_matrix(d_state, d_inner).requires_grad_(True),
+            "log_a": log_a,
+            "out_proj_weight": init_matrix(
+                d_model, d_inner
+            ).requires_grad_(True),
+            "out_proj_bias": init_bias(d_model).requires_grad_(True),
+        }
+        params["blocks"].append(block)
+
+    # 3. Optimization loop
+    losses = []
+    for _ in range(n_steps):
+        loss_val = sgd_training_step(corpus_ids, params, lr)
+        losses.append(loss_val)
+
+    # 4. Greedily generate from prompt tokens
+    generated_ids = greedy_generate(prompt_ids, params, max_new_tokens)
+
+    # 5. Decode sequence to text
+    text = "".join(itos[int(idx)] for idx in generated_ids)
+
+    return text, losses
 
