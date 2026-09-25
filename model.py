@@ -319,8 +319,23 @@ def mamba_block(x, params):
     out = mamba_mixer(x_new, params)
     return x + out
 
-# Step 19 - run_mamba_lm_stack (not yet solved)
-# TODO: implement
+# Step 19 - run_mamba_lm_stack
+def run_mamba_lm_stack(embeddings, params):
+    """Run token embeddings through stacked Mamba residual blocks and a final RMSNorm.
+
+    Args:
+        embeddings: (B, L, D) token embeddings.
+        params: dict with key `blocks` (list of per-block dicts for `mamba_block`)
+            and key `norm_weight` of shape (D,) for the final RMSNorm (eps=1e-5).
+
+    Returns:
+        (B, L, D) hidden states after the stack and final RMSNorm.
+    """
+    # TODO: Run token embeddings through stacked Mamba residual blocks and a final RMSNorm.
+    x = embeddings 
+    for p in params["blocks"]:
+        x = mamba_block(x, p)
+    return rms_norm(x, params["norm_weight"])
 
 # Step 20 - mamba_lm_forward (not yet solved)
 # TODO: implement
