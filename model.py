@@ -416,8 +416,122 @@ def sgd_training_step(token_ids, params, lr):
     # 5. Return loss as a standard Python float
     return float(loss.item())
 
-# Step 23 - mamba_recurrent_step (not yet solved)
-# TODO: implement
+# Step 23 - mamba_recurrent_step
+import torch
+import torch.nn.functional as F
+
+
+def mamba_recurrent_step(token_ids, params, cache=None):
+    """Consume one token and return next-token logits plus an updated cache.
+
+    Args:
+        token_ids: (batch,) or (batch, 1) integer tensor of token ids.
+        params: dict with embed_weight (V, D), lm_head_weight (V, D),
+            norm_weight (D,), and blocks (list of per-block param dicts).
+        cache: None or dict with keys:
+            'conv_states': list of (batch, K - 1, d_inner) per layer
+            'ssm_states': list of (batch, d_inner, d_state) per layer
+
+    Returns:
+        logits: (batch, vocab) next-token logits.
+        new_cache: dict with updated 'conv_states' and 'ssm_states'.
+    """
+    # 1. Normalize token_ids shape to (B, 1)
+    if token_ids.ndim == 1:
+        token_ids = token_ids.unsqueeze(-1)
+    B = token_ids.shape[0]
+
+    # 2. Embed tokens to (B, 1, D)
+    u = F.embedding(token_ids, params["embed_weight"])
+
+    blocks = params["blocks"]
+    num_layers = len(blocks)
+
+    new_conv_states = []
+    new_ssm_states = []
+
+    # 3. Process through Mamba layers sequentially
+    for l, block_params in enumerate(blocks):
+        residual = u
+
+        # Pre-norm
+        x_norm = rms_norm(u, block_params["norm_weight"], eps=1e-5)
+
+        # In-projection split into SSM input x and gate z
+        in_proj_bias = block_params.get("in_proj_bias")
+        x, z = in_proj_split(
+            x_norm, block_params["in_proj_weight"], bias=in_proj_bias
+        )  # (B, 1, E)
+
+        conv_weight = block_params["conv_weight"]  # (E, K)
+        conv_bias = block_params.get("conv_bias")
+        E, K = conv_weight.shape
+
+        # Fetch or initialize layer caches
+        if cache is None:
+            prev_conv = torch.zeros(
+                (B, K - 1, E), dtype=x.dtype, device=x.device
+            )
+            prev_ssm = None
+        else:
+            prev_conv = cache["conv_states"][l]
+            prev_ssm = cache["ssm_states"][l]
+
+        # Concatenate cached conv history with current token input: (B, K, E)
+        conv_input = torch.cat([prev_conv, x], dim=1)
+
+        # Next conv cache holds the last K - 1 elements
+        next_conv = (
+            conv_input[:, 1:, :]
+            if K > 1
+            else torch.empty((B, 0, E), dtype=x.dtype, device=x.device)
+        )
+        new_conv_states.append(next_conv)
+
+        # Causal depthwise conv: take the last time step output and apply SiLU
+        x_conv = causal_depthwise_conv1d(
+            conv_input, conv_weight, bias=conv_bias
+        )
+        x_t = silu(x_conv[:, -1:, :])  # (B, 1, E)
+
+        # Input-dependent projections
+        dt_bias = block_params.get("dt_bias")
+        delta = compute_delta(
+            x_t, block_params["dt_weight"], bias=dt_bias
+        )  # (B, 1, E)
+        b, c = project_bc(
+            x_t, block_params["weight_b"], block_params["weight_c"]
+        )  # (B, 1, N)
+
+        # Discretize continuous state matrices
+        a = make_diagonal_a(block_params["log_a"])  # (E, N)
+        a_bar = discretize_a_zoh(delta, a)  # (B, 1, E, N)
+        b_bar = discretize_b_zoh(delta, a, b)  # (B, 1, E, N)
+
+        # Run 1-step selective scan starting from previous SSM state
+        y, next_ssm = selective_scan(x_t, a_bar, b_bar, c, h0=prev_ssm)
+        new_ssm_states.append(next_ssm)
+
+        # Gate and project back to model dimension D
+        out_proj_bias = block_params.get("out_proj_bias")
+        y_gated = gate_scan_output(y, z)
+        out = out_proj(
+            y_gated, block_params["out_proj_weight"], bias=out_proj_bias
+        )
+
+        # Pre-norm residual connection
+        u = residual + out
+
+    # 4. Final RMSNorm and LM Head projection
+    u_norm = rms_norm(u, params["norm_weight"], eps=1e-5)  # (B, 1, D)
+    logits = F.linear(u_norm, params["lm_head_weight"])  # (B, 1, V)
+
+    new_cache = {
+        "conv_states": new_conv_states,
+        "ssm_states": new_ssm_states,
+    }
+
+    return logits.squeeze(1), new_cache
 
 # Step 24 - greedy_generate (not yet solved)
 # TODO: implement
