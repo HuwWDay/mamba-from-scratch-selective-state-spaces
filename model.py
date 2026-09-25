@@ -363,8 +363,58 @@ def next_token_cross_entropy(logits, token_ids):
     tok = token_ids[:, 1:].reshape(-1).long()
     return torch.nn.functional.cross_entropy(log, tok)
 
-# Step 22 - sgd_training_step (not yet solved)
-# TODO: implement
+# Step 22 - sgd_training_step
+import torch
+
+
+def sgd_training_step(token_ids, params, lr):
+    """Run one vanilla SGD step of next-token prediction and return the loss.
+
+    Args:
+        token_ids: (B, L) integer tensor of token ids with L >= 2.
+        params: dict with embed_weight (V, D), lm_head_weight (V, D),
+            norm_weight (D,), and blocks (list of nested param dicts).
+            Parameter tensors must have requires_grad=True and are updated in place.
+        lr: vanilla SGD learning rate.
+
+    Returns:
+        Python float, the next-token cross-entropy from this step.
+    """
+    # 1. Clear any leftover gradients across the parameter tree
+    stack = [params]
+    while stack:
+        curr = stack.pop()
+        if torch.is_tensor(curr):
+            if curr.grad is not None:
+                curr.grad.zero_()
+        elif isinstance(curr, dict):
+            stack.extend(curr.values())
+        elif isinstance(curr, (list, tuple)):
+            stack.extend(curr)
+
+    # 2. Forward pass and loss computation
+    logits = mamba_lm_forward(token_ids, params)
+    loss = next_token_cross_entropy(logits, token_ids)
+
+    # 3. Backward pass to populate .grad
+    loss.backward()
+
+    # 4. In-place SGD update and zero .grad
+    with torch.no_grad():
+        stack = [params]
+        while stack:
+            curr = stack.pop()
+            if torch.is_tensor(curr):
+                if curr.grad is not None:
+                    curr.add_(curr.grad, alpha=-lr)
+                    curr.grad.zero_()
+            elif isinstance(curr, dict):
+                stack.extend(curr.values())
+            elif isinstance(curr, (list, tuple)):
+                stack.extend(curr)
+
+    # 5. Return loss as a standard Python float
+    return float(loss.item())
 
 # Step 23 - mamba_recurrent_step (not yet solved)
 # TODO: implement
