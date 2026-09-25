@@ -354,8 +354,14 @@ def mamba_lm_forward(token_ids, params):
     out = run_mamba_lm_stack(emb, params)
     return torch.nn.functional.linear(out, params["lm_head_weight"])
 
-# Step 21 - next_token_cross_entropy (not yet solved)
-# TODO: implement
+# Step 21 - next_token_cross_entropy
+def next_token_cross_entropy(logits, token_ids):
+    """Compute the mean next-token cross-entropy from logits and token ids."""
+    # TODO: Compute the mean next-token cross-entropy loss...
+    B, T, V = logits.shape
+    log = logits[:, :-1, :].reshape(-1, V)
+    tok = token_ids[:, 1:].reshape(-1).long()
+    return torch.nn.functional.cross_entropy(log, tok)
 
 # Step 22 - sgd_training_step (not yet solved)
 # TODO: implement
